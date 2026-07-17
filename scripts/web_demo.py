@@ -197,6 +197,11 @@ def process_assistant_content(content, is_streaming=False):
 
 @st.cache_resource
 def load_model_tokenizer(model_path):
+    if model_path is None or not os.path.exists(model_path):
+        from huggingface_hub import snapshot_download
+        repo_id = "jingyaogong/minimind-3o-pytorch"
+        print(f"从 Hugging Face 加载官方模型: {repo_id}")
+        model_path = snapshot_download(repo_id=repo_id)
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=True

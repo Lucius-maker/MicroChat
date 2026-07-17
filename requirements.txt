@@ -29,4 +29,4 @@ einops
 swanlab
 modelscope
 # torch
-# torchvision
+# torchvisionhuggingface_hub>=0.20.0
