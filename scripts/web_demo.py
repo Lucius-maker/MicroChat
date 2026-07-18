@@ -140,7 +140,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 可选：显示副标题
-st.markdown('<p class="subtitle">☀️  MicroChat</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">☀️  MicroChat verson1.1</p>', unsafe_allow_html=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -270,6 +270,8 @@ def process_assistant_content(content, is_streaming=False):
 
 
 @st.cache_resource
+from huggingface_hub import hf_hub_download
+import torch
 def load_model_tokenizer(model_path):
     if model_path is None or not os.path.exists(model_path):
         repo_id = "Qwen/Qwen2.5-0.5B-Instruct"
