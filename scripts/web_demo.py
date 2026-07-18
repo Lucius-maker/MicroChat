@@ -12,60 +12,135 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStream
 st.set_page_config(page_title="MiniMind", initial_sidebar_state="collapsed")
 
 st.markdown("""
-    <style>
-        /* 添加操作按钮样式 */
-        .stButton button {
-            border-radius: 50% !important;  /* 改为圆形 */
-            width: 32px !important;         /* 固定宽度 */
-            height: 32px !important;        /* 固定高度 */
-            padding: 0 !important;          /* 移除内边距 */
-            background-color: transparent !important;
-            border: 1px solid #ddd !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 14px !important;
-            color: #666 !important;         /* 更柔和的颜色 */
-            margin: 5px 10px 5px 0 !important;  /* 调整按钮间距 */
-        }
-        .stButton button:hover {
-            border-color: #999 !important;
-            color: #333 !important;
-            background-color: #f5f5f5 !important;
-        }
-        .stMainBlockContainer > div:first-child {
-            margin-top: -50px !important;
-        }
-        .stApp > div:last-child {
-            margin-bottom: -35px !important;
-        }
-        
-        /* 重置按钮基础样式 */
-        .stButton > button {
-            all: unset !important;  /* 重置所有默认样式 */
-            box-sizing: border-box !important;
-            border-radius: 50% !important;
-            width: 18px !important;
-            height: 18px !important;
-            min-width: 18px !important;
-            min-height: 18px !important;
-            max-width: 18px !important;
-            max-height: 18px !important;
-            padding: 0 !important;
-            background-color: transparent !important;
-            border: 1px solid #ddd !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            font-size: 14px !important;
-            color: #888 !important;
-            cursor: pointer !important;
-            transition: all 0.2s ease !important;
-            margin: 0 2px !important;  /* 调整这里的 margin 值 */
-        }
+<style>
+    /* 全局背景 - 暖黄渐变 */
+    .stApp {
+        background: linear-gradient(145deg, #fdf6e3 0%, #fef9e7 50%, #fff8e1 100%);
+        font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+    }
 
-    </style>
+    /* 标题 - 蜂蜜色 */
+    h1 {
+        text-align: center;
+        font-size: 2.8rem;
+        font-weight: 600;
+        color: #b8860b;
+        text-shadow: 2px 2px 8px rgba(184, 134, 11, 0.15);
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+    }
+
+    /* 副标题/描述 */
+    .subtitle {
+        text-align: center;
+        color: #d4a373;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+        font-weight: 300;
+    }
+
+    /* 聊天容器 */
+    .stChatMessage {
+        background: rgba(255, 248, 225, 0.6);
+        backdrop-filter: blur(4px);
+        border-radius: 20px;
+        padding: 12px 18px;
+        margin: 8px 0;
+        border: 1px solid rgba(255, 215, 0, 0.15);
+        box-shadow: 0 4px 12px rgba(184, 134, 11, 0.06);
+    }
+
+    /* 用户消息 - 暖杏色 */
+    div[data-testid="stChatMessage"]:nth-child(odd) {
+        background: #fdebd0;
+        border-left: 4px solid #f5b041;
+        border-radius: 18px 18px 4px 18px;
+    }
+
+    /* 助手消息 - 奶油白 */
+    div[data-testid="stChatMessage"]:nth-child(even) {
+        background: #fffdf7;
+        border-left: 4px solid #f7dc6f;
+        border-radius: 18px 18px 18px 4px;
+    }
+
+    /* 输入框 */
+    .stTextInput > div > div > input {
+        background: #fffdf5;
+        border: 2px solid #f7dc6f;
+        border-radius: 30px;
+        padding: 12px 20px;
+        font-size: 1rem;
+        color: #5d4037;
+        box-shadow: 0 2px 8px rgba(184, 134, 11, 0.08);
+        transition: all 0.3s ease;
+    }
+    .stTextInput > div > div > input:focus {
+        border-color: #d4a017;
+        box-shadow: 0 4px 16px rgba(184, 134, 11, 0.2);
+        outline: none;
+    }
+
+    /* 按钮 - 蜂蜜黄 */
+    .stButton > button {
+        background: linear-gradient(145deg, #f9e79f, #f7dc6f);
+        color: #7d6608;
+        border: none;
+        border-radius: 30px;
+        padding: 10px 28px;
+        font-weight: 600;
+        font-size: 1rem;
+        box-shadow: 0 4px 12px rgba(184, 134, 11, 0.2);
+        transition: all 0.25s ease;
+        cursor: pointer;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        background: linear-gradient(145deg, #f7dc6f, #f5b041);
+        box-shadow: 0 8px 24px rgba(184, 134, 11, 0.3);
+        color: #4d3800;
+    }
+    .stButton > button:active {
+        transform: translateY(0px);
+        box-shadow: 0 2px 8px rgba(184, 134, 11, 0.2);
+    }
+
+    /* 侧边栏 */
+    .css-1d391kg {
+        background: #fef9e7;
+        border-right: 1px solid #f7dc6f;
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #fef9e7;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #f7dc6f;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #f5b041;
+    }
+
+    /* 页脚（可选） */
+    .footer {
+        text-align: center;
+        color: #d4a373;
+        font-size: 0.8rem;
+        margin-top: 2rem;
+        opacity: 0.7;
+        border-top: 1px solid #f7dc6f;
+        padding-top: 1rem;
+    }
+</style>
 """, unsafe_allow_html=True)
+
+# 可选：显示副标题
+st.markdown('<p class="subtitle">☀️ 微光 · 温暖 · 治愈</p>', unsafe_allow_html=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
