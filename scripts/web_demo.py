@@ -197,29 +197,22 @@ def process_assistant_content(content, is_streaming=False):
 @st.cache_resource
 def load_model_tokenizer(model_path):
     if model_path is None or not os.path.exists(model_path):
-        from huggingface_hub import snapshot_download
-        repo_id = "jingyaogong/minimind-3o"
-        print(f"从 Hugging Face 加载官方模型: {repo_id}")
-        model_path = snapshot_download(
-            repo_id=repo_id,
-            ignore_patterns=["*.gguf"],
-            resume_download=True
-        )
-    # 显式指定配置，避免动态导入错误
+        repo_id = "Qwen/Qwen2.5-0.5B-Instruct"
+        print(f"从 Hugging Face 加载模型: {repo_id}")
+        model_path = repo_id
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        trust_remote_code=True,
-        torch_dtype=torch.float32,      # CPU 不支持 float16
-        device_map="cpu",               # 强制 CPU（免费实例无 GPU）
+        trust_remote_code=False,
+        torch_dtype=torch.float32,
+        device_map="cpu",
         low_cpu_mem_usage=True
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_path,
-        trust_remote_code=True
+        trust_remote_code=False
     )
     model = model.eval()
     return model, tokenizer
-
 
 def clear_chat_messages():
     del st.session_state.messages
