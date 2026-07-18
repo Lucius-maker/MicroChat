@@ -140,7 +140,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 可选：显示副标题
-st.markdown('<p class="subtitle">☀️ 微光 · 温暖 · 治愈</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">☀️  MicroChat</p>', unsafe_allow_html=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
