@@ -205,12 +205,13 @@ def load_model_tokenizer(model_path):
             ignore_patterns=["*.gguf"],
             resume_download=True
         )
+    # 显式指定配置，避免动态导入错误
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=True,
-        torch_dtype=torch.float16,
-        low_cpu_mem_usage=True,
-        device_map="auto"
+        torch_dtype=torch.float32,      # CPU 不支持 float16
+        device_map="cpu",               # 强制 CPU（免费实例无 GPU）
+        low_cpu_mem_usage=True
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_path,
