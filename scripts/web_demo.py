@@ -191,7 +191,6 @@ def process_assistant_content(content, is_streaming=False):
                 return f'<details open style="border-left: 2px solid #666; padding-left: 12px; margin: 8px 0;"><summary style="cursor: pointer; color: #888;">已思考</summary><div style="color: #aaa; font-size: 0.95em; margin-top: 8px; max-height: 100px; overflow-y: auto;">{think_content.strip()}</div></details>'
             return ''
         content = re.sub(r'(.*?)</think>', format_think_no_start, content, flags=re.DOTALL)
-
     return content
 
 
@@ -199,18 +198,25 @@ def process_assistant_content(content, is_streaming=False):
 def load_model_tokenizer(model_path):
     if model_path is None or not os.path.exists(model_path):
         from huggingface_hub import snapshot_download
-        repo_id = "jingyaogong/minimind-3o-pytorch"
+        repo_id = "jingyaogong/minimind-3o"
         print(f"从 Hugging Face 加载官方模型: {repo_id}")
-        model_path = snapshot_download(repo_id=repo_id)
+        model_path = snapshot_download(
+            repo_id=repo_id,
+            ignore_patterns=["*.gguf"],
+            resume_download=True
+        )
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        trust_remote_code=True
+        trust_remote_code=True,
+        torch_dtype=torch.float16,
+        low_cpu_mem_usage=True,
+        device_map="auto"
     )
     tokenizer = AutoTokenizer.from_pretrained(
         model_path,
         trust_remote_code=True
     )
-    model = model.half().eval().to(device)
+    model = model.eval()
     return model, tokenizer
 
 
