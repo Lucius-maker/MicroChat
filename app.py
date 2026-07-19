@@ -5,7 +5,7 @@ import os
 from huggingface_hub import hf_hub_download
 from auth import init_auth, get_user
 from database import init_db, save_message, load_history, get_sessions, delete_session
-from model.model_minimind import MiniMindLM
+from model.model_minimind import MiniMindForCausalLM, MiniMindConfig
 
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="MicroChat", page_icon="🧠", layout="wide")
@@ -77,7 +77,7 @@ def load_model():
         cache_dir="/tmp/huggingface_cache"
     )
     # 2. 实例化模型
-    model = MiniMindLM()
+    model = MiniMindForCausalLM(MiniMindConfig())
     # 3. 加载权重
     state_dict = torch.load(model_file, map_location='cpu')
     model.load_state_dict(state_dict)
