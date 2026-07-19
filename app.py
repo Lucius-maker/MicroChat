@@ -54,28 +54,50 @@ def save_user_chats(username, chats):
     with open(get_chats_file(username), "w", encoding="utf-8") as f:
         json.dump(chats, f, ensure_ascii=False, indent=2)
 
-# ---------- 页面配置 ----------
-st.set_page_config(page_title="MiniMind", initial_sidebar_state="collapsed")
+# ---------- 保存当前对话 ----------
+def save_current_chat(username):
+    if 'messages' in st.session_state and st.session_state.messages:
+        chats = load_user_chats(username)
+        current_id = st.session_state.get('current_chat_id')
+        if current_id is not None:
+            for chat in chats:
+                if chat['id'] == current_id:
+                    chat['messages'] = st.session_state.messages.copy()
+                    if st.session_state.messages:
+                        chat['title'] = st.session_state.messages[0]['content'][:30]
+                    break
+        else:
+            new_id = max([c['id'] for c in chats], default=-1) + 1
+            title = st.session_state.messages[0]['content'][:30] if st.session_state.messages else "新对话"
+            chats.append({
+                "id": new_id,
+                "title": title,
+                "messages": st.session_state.messages.copy()
+            })
+            st.session_state['current_chat_id'] = new_id
+        save_user_chats(username, chats)
 
-# ---------- 样式（原样保留） ----------
+# ---------- 页面配置 ----------
+st.set_page_config(page_title="MiniMind", initial_sidebar_state="expanded")
+
+# ---------- 样式（亮黄色 DeepSeek 风格） ----------
 st.markdown("""
 <style>
-    /* 全局背景 - 暖黄渐变 */
+    /* 全局背景 - 浅黄白 */
     .stApp {
-        background: linear-gradient(145deg, #fdf6e3 0%, #fef9e7 50%, #fff8e1 100%);
+        background: #fef9e6;
         font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
     }
-    /* 标题 - 蜂蜜色 */
+    /* 标题 - 亮黄 */
     h1 {
         text-align: center;
         font-size: 2.8rem;
         font-weight: 600;
-        color: #b8860b;
-        text-shadow: 2px 2px 8px rgba(184, 134, 11, 0.15);
+        color: #e6a800;
+        text-shadow: 2px 2px 12px rgba(230, 168, 0, 0.2);
         letter-spacing: 1px;
         margin-bottom: 0.5rem;
     }
-    /* 副标题/描述 */
     .subtitle {
         text-align: center;
         color: #d4a373;
@@ -90,13 +112,13 @@ st.markdown("""
         border-radius: 20px;
         padding: 12px 18px;
         margin: 8px 0;
-        border: 1px solid rgba(255, 215, 0, 0.15);
-        box-shadow: 0 4px 12px rgba(184, 134, 11, 0.06);
+        border: 1px solid rgba(247, 201, 72, 0.2);
+        box-shadow: 0 4px 12px rgba(247, 201, 72, 0.08);
     }
-    /* 用户消息 - 暖杏色 */
+    /* 用户消息 - 淡黄 */
     div[data-testid="stChatMessage"]:nth-child(odd) {
-        background: #fdebd0;
-        border-left: 4px solid #f5b041;
+        background: #fef3c7;
+        border-left: 4px solid #f7c948;
         border-radius: 18px 18px 4px 18px;
     }
     /* 助手消息 - 奶油白 */
@@ -108,46 +130,46 @@ st.markdown("""
     /* 输入框 */
     .stTextInput > div > div > input {
         background: #fffdf5;
-        border: 2px solid #f7dc6f;
+        border: 2px solid #f7c948;
         border-radius: 30px;
         padding: 12px 20px;
         font-size: 1rem;
         color: #5d4037;
-        box-shadow: 0 2px 8px rgba(184, 134, 11, 0.08);
+        box-shadow: 0 2px 8px rgba(247, 201, 72, 0.15);
         transition: all 0.3s ease;
     }
     .stTextInput > div > div > input:focus {
-        border-color: #d4a017;
-        box-shadow: 0 4px 16px rgba(184, 134, 11, 0.2);
+        border-color: #e6a800;
+        box-shadow: 0 4px 16px rgba(247, 201, 72, 0.3);
         outline: none;
     }
-    /* 按钮 - 蜂蜜黄 */
+    /* 按钮 - 亮黄 */
     .stButton > button {
-        background: linear-gradient(145deg, #f9e79f, #f7dc6f);
-        color: #7d6608;
+        background: #f7c948;
+        color: #333;
         border: none;
         border-radius: 30px;
         padding: 10px 28px;
         font-weight: 600;
         font-size: 1rem;
-        box-shadow: 0 4px 12px rgba(184, 134, 11, 0.2);
+        box-shadow: 0 4px 12px rgba(247, 201, 72, 0.3);
         transition: all 0.25s ease;
         cursor: pointer;
     }
     .stButton > button:hover {
         transform: translateY(-2px);
-        background: linear-gradient(145deg, #f7dc6f, #f5b041);
-        box-shadow: 0 8px 24px rgba(184, 134, 11, 0.3);
-        color: #4d3800;
+        background: #f5b700;
+        box-shadow: 0 8px 24px rgba(247, 201, 72, 0.5);
+        color: #1a1a1a;
     }
     .stButton > button:active {
         transform: translateY(0px);
-        box-shadow: 0 2px 8px rgba(184, 134, 11, 0.2);
+        box-shadow: 0 2px 8px rgba(247, 201, 72, 0.2);
     }
     /* 侧边栏 */
     .css-1d391kg {
         background: #fef9e7;
-        border-right: 1px solid #f7dc6f;
+        border-right: 1px solid #f7c948;
     }
     /* 滚动条 */
     ::-webkit-scrollbar {
@@ -157,11 +179,11 @@ st.markdown("""
         background: #fef9e7;
     }
     ::-webkit-scrollbar-thumb {
-        background: #f7dc6f;
+        background: #f7c948;
         border-radius: 10px;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: #f5b041;
+        background: #e6a800;
     }
     .footer {
         text-align: center;
@@ -169,13 +191,19 @@ st.markdown("""
         font-size: 0.8rem;
         margin-top: 2rem;
         opacity: 0.7;
-        border-top: 1px solid #f7dc6f;
+        border-top: 1px solid #f7c948;
         padding-top: 1rem;
+    }
+    /* 新对话按钮（主界面顶部） */
+    .new-chat-top {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- 工具函数和全局变量（原样） ----------
+# ---------- 工具函数和全局变量 ----------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 LANG_TEXTS = {
@@ -358,29 +386,6 @@ def login_register_page():
                 else:
                     st.error("用户名已存在")
 
-# ---------- 保存当前对话 ----------
-def save_current_chat(username):
-    if 'messages' in st.session_state and st.session_state.messages:
-        chats = load_user_chats(username)
-        current_id = st.session_state.get('current_chat_id')
-        if current_id is not None:
-            for chat in chats:
-                if chat['id'] == current_id:
-                    chat['messages'] = st.session_state.messages.copy()
-                    if st.session_state.messages:
-                        chat['title'] = st.session_state.messages[0]['content'][:30]
-                    break
-        else:
-            new_id = max([c['id'] for c in chats], default=-1) + 1
-            title = st.session_state.messages[0]['content'][:30] if st.session_state.messages else "新对话"
-            chats.append({
-                "id": new_id,
-                "title": title,
-                "messages": st.session_state.messages.copy()
-            })
-            st.session_state['current_chat_id'] = new_id
-        save_user_chats(username, chats)
-
 # ---------- 主函数 ----------
 def main():
     # 检查登录状态
@@ -394,7 +399,6 @@ def main():
     with st.sidebar:
         st.write(f"👤 {username}")
         if st.button("🚪 登出"):
-            # 登出前保存当前对话
             save_current_chat(username)
             del st.session_state['user']
             del st.session_state['current_chat_id']
@@ -404,9 +408,7 @@ def main():
         
         st.markdown("---")
         if st.button("➕ 新建对话"):
-            # 保存当前对话
             save_current_chat(username)
-            # 清空当前对话
             st.session_state.messages = []
             st.session_state.chat_messages = []
             st.session_state['current_chat_id'] = None
@@ -419,16 +421,13 @@ def main():
             cols = st.columns([5, 1])
             with cols[0]:
                 if st.button(chat['title'], key=f"load_{chat['id']}"):
-                    # 先保存当前对话（如果有）
                     save_current_chat(username)
-                    # 加载选中的对话
                     st.session_state.messages = chat['messages'].copy()
                     st.session_state.chat_messages = chat['messages'].copy()
                     st.session_state['current_chat_id'] = chat['id']
                     st.rerun()
             with cols[1]:
                 if st.button("🗑️", key=f"del_{chat['id']}"):
-                    # 删除对话
                     chats = [c for c in chats if c['id'] != chat['id']]
                     save_user_chats(username, chats)
                     if st.session_state.get('current_chat_id') == chat['id']:
@@ -438,10 +437,9 @@ def main():
                     st.rerun()
 
         st.markdown("---")
-        # 原模型参数设置（保留）
+        # 模型参数设置
         selected_model = st.selectbox('Model', list(MODEL_PATHS.keys()), index=0)
         model_path = MODEL_PATHS[selected_model][0]
-        # 其他参数移到侧边栏（原样）
         st.session_state.history_chat_num = st.slider(get_text('history_rounds'), 0, 8, 0, step=2)
         st.session_state.max_new_tokens = st.slider(get_text('max_length'), 256, 8192, 8192, step=1)
         st.session_state.temperature = st.slider(get_text('temperature'), 0.6, 1.2, 0.90, step=0.01)
@@ -457,10 +455,26 @@ def main():
                 if checked and len(st.session_state.selected_tools) < 4:
                     st.session_state.selected_tools.append(name)
 
-    # ---------- 聊天界面 ----------
+    # ---------- 主聊天界面 ----------
+    # 顶部显示当前对话标题和“新建对话”按钮（额外放置，确保可见）
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        chat_title = "新对话" if not st.session_state.messages else st.session_state.messages[0]['content'][:30]
+        st.markdown(f"### 💬 {chat_title}")
+    with col2:
+        if st.button("✨ 新建对话", key="new_chat_top"):
+            save_current_chat(username)
+            st.session_state.messages = []
+            st.session_state.chat_messages = []
+            st.session_state['current_chat_id'] = None
+            st.rerun()
+
+    st.markdown("---")
+
+    # 加载模型
     model, tokenizer = load_model_tokenizer(model_path)
 
-    # 显示当前对话消息
+    # 显示消息
     if "messages" not in st.session_state:
         st.session_state.messages = []
         st.session_state.chat_messages = []
@@ -476,7 +490,6 @@ def main():
     prompt = st.chat_input(key="input", placeholder=get_text('send'))
 
     if prompt:
-        # 显示用户消息
         st.markdown(
             f'<div style="display: flex; justify-content: flex-end;"><div style="display: inline-block; margin: 10px 0; padding: 8px 12px 8px 12px; background-color: #3d4450; border-radius: 22px; color: white;">{prompt}</div></div>',
             unsafe_allow_html=True)
@@ -556,10 +569,9 @@ def main():
         st.session_state.messages.append({"role": "assistant", "content": answer})
         st.session_state.chat_messages.append({"role": "assistant", "content": answer})
 
-        # 保存当前对话
         save_current_chat(username)
 
-# ---------- 动态扫描模型目录（保留） ----------
+# ---------- 动态扫描模型目录 ----------
 script_dir = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATHS = {}
 for d in sorted(os.listdir(script_dir), reverse=True):
