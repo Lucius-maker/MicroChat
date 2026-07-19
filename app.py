@@ -1,12 +1,15 @@
 import streamlit as st
 import uuid
+import torch
+import os
 from auth import init_auth
 from database import init_db, save_message, load_history, get_sessions, delete_session
+from model.model_minimind import MiniMindForCausalLM, MiniMindConfig
 
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="MicroChat", page_icon="💛", layout="wide")
 
-# ---------- DeepSeek 风格 CSS ----------
+# ---------- CSS ----------
 st.markdown("""
 <style>
 .stApp { background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
@@ -28,9 +31,29 @@ div[data-testid="stChatMessage"]:nth-child(even) .stMarkdown { color: #5d4037; }
 st.markdown('<h1>Micro<span>Chat</span></h1>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">温暖 · 有记忆 · 懂推理</p>', unsafe_allow_html=True)
 
-# ---------- 占位回复（无模型） ----------
-def generate_response(prompt, messages):
-    return f"💛 收到：{prompt}\n\n（MicroChat 当前处于无模型模式，仅用于展示界面和功能。模型将在后续版本中接入。）"
+# ---------- 加载模型 ----------
+@st.cache_resource
+def load_model():
+    model_path = os.path.join(os.path.dirname(__file__), "out", "full_sft_768.pth")
+    if not os.path.exists(model_path):
+        st.error(f"模型文件不存在：{model_path}")
+        return None
+    config = MiniMindConfig()
+    model = MiniMindForCausalLM(config)
+    state_dict = torch.load(model_path, map_location='cpu')
+    model.load_state_dict(state_dict)
+    model.eval()
+    return model
+
+model = load_model()
+
+# ---------- 生成回复 ----------
+def generate_response(prompt, history):
+    if model is None:
+        return "⚠️ 模型未加载"
+    # 这里需要 tokenizer，如果项目中有，请导入并使用
+    # 示例占位，实际需要调用 model.generate()
+    return f"💛 收到：{prompt}\n（模型已加载，生成逻辑待接入）"
 
 # ---------- 会话管理 ----------
 def init_session_state(username):
