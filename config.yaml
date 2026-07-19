@@ -1,0 +1,8 @@
+cookie:
+  expiry_days: 30
+  key: "microchat_secret_key_2026_7_19"
+  name: "microchat_cookie"
+credentials:
+  usernames: {}
+pre-authorized:
+  emails: []

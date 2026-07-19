@@ -34,3 +34,7 @@ accelerate>=0.20.0
 accelerate>=0.20.0
 sentencepiece>=0.1.99
 protobuf>=3.20.0
+streamlit>=1.28.0
+streamlit-authenticator>=0.3.0
+pyyaml>=6.0
+sqlalchemy>=2.0.0
