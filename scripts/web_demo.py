@@ -2,8 +2,8 @@ import random
 import re
 import json
 import os
-from huggingface_hub import hf_hub_download
 from threading import Thread
+
 import torch
 import numpy as np
 import streamlit as st
@@ -140,7 +140,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 可选：显示副标题
-st.markdown('<p class="subtitle">☀️  MicroChat verson1.1</p>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">☀️  MicroChat</p>', unsafe_allow_html=True)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -272,21 +272,21 @@ def process_assistant_content(content, is_streaming=False):
 @st.cache_resource
 def load_model_tokenizer(model_path):
     if model_path is None or not os.path.exists(model_path):
-        model_file = hf_hub_download(
-            repo_id="Lucius-maker/MicroChat-Distill",
-            filename="full_sft_distill_786.pth",
-            cache_dir="/tmp/huggingface_cache"
-        )
-    else:
-        model_file = model_path
-    
-    from model.model import MiniMindLM
-    from model.tokenizer import Tokenizer
-    
-    model = MiniMindLM()
-    model.load_state_dict(torch.load(model_file, map_location='cpu'))
-    tokenizer = Tokenizer()
-    model.eval()
+        repo_id = "Qwen/Qwen2.5-0.5B-Instruct"
+        print(f"从 Hugging Face 加载模型: {repo_id}")
+        model_path = repo_id
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        trust_remote_code=False,
+        torch_dtype=torch.float32,
+        device_map="cpu",
+        low_cpu_mem_usage=True
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_path,
+        trust_remote_code=False
+    )
+    model = model.eval()
     return model, tokenizer
 
 def clear_chat_messages():
