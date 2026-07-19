@@ -7,38 +7,57 @@ from auth import init_auth, get_user
 from database import init_db, save_message, load_history, get_sessions, delete_session
 
 # ---------- 页面配置 ----------
-st.set_page_config(page_title="MicroChat", page_icon="🧠", layout="wide")
+st.set_page_config(
+    page_title="MicroChat", 
+    page_icon="🌻",          # 换上向日葵图标
+    layout="wide"
+)
 
-# ---------- 黄色治愈主题 CSS ----------
+# ---------- 黄色治愈主题 CSS（优化后） ----------
 st.markdown("""
 <style>
+/* 全局背景 - 治愈暖黄 */
 .stApp {
     background: linear-gradient(145deg, #fdf6e3 0%, #fef9e7 50%, #fff8e1 100%);
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
 }
+
+/* 主标题 - 居中，简洁 */
 h1 {
     text-align: center;
-    font-size: 2.8rem;
+    font-size: 2.6rem;
     font-weight: 600;
     color: #b8860b;
-    text-shadow: 2px 2px 8px rgba(184, 134, 11, 0.15);
-    letter-spacing: 1px;
+    letter-spacing: 2px;
+    margin-bottom: 0.2rem;
 }
+.subtitle {
+    text-align: center;
+    color: #d4a373;
+    font-size: 1rem;
+    font-weight: 300;
+    margin-top: -0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* 按钮 - 暖黄渐变 */
 .stButton > button {
     background: linear-gradient(145deg, #f9e79f, #f7dc6f);
     color: #7d6608;
     border: none;
     border-radius: 30px;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(184, 134, 11, 0.2);
+    box-shadow: 0 4px 12px rgba(184, 134, 11, 0.15);
     transition: all 0.25s ease;
 }
 .stButton > button:hover {
     transform: translateY(-2px);
     background: linear-gradient(145deg, #f7dc6f, #f5b041);
-    box-shadow: 0 8px 24px rgba(184, 134, 11, 0.3);
+    box-shadow: 0 8px 24px rgba(184, 134, 11, 0.25);
     color: #4d3800;
 }
+
+/* 输入框 - 圆润 */
 .stTextInput > div > div > input {
     background: #fffdf5;
     border: 2px solid #f7dc6f;
@@ -46,13 +65,15 @@ h1 {
     padding: 12px 20px;
     font-size: 1rem;
     color: #5d4037;
-    box-shadow: 0 2px 8px rgba(184, 134, 11, 0.08);
+    box-shadow: 0 2px 8px rgba(184, 134, 11, 0.06);
 }
 .stTextInput > div > div > input:focus {
     border-color: #d4a017;
-    box-shadow: 0 4px 16px rgba(184, 134, 11, 0.2);
+    box-shadow: 0 4px 16px rgba(184, 134, 11, 0.15);
     outline: none;
 }
+
+/* 聊天气泡 - 治愈风 */
 div[data-testid="stChatMessage"]:nth-child(odd) {
     background: #fdebd0;
     border-left: 4px solid #f5b041;
@@ -63,34 +84,24 @@ div[data-testid="stChatMessage"]:nth-child(even) {
     border-left: 4px solid #f7dc6f;
     border-radius: 18px 18px 18px 4px;
 }
+
+/* 侧边栏 - 透明暖色 */
+.css-1d391kg {
+    background: rgba(254, 249, 231, 0.7);
+    backdrop-filter: blur(4px);
+    border-right: 1px solid #f7dc6f;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- 模型加载（带异常处理） ----------
-model_ready = False
-try:
-    # 尝试从 Hugging Face 下载权重（如果仓库不存在，会抛出异常）
-    # 这里先注释掉，让网站无模型也能运行
-    # model_file = hf_hub_download(
-    #     repo_id="Lucius-maker/MicroChat-Distill",
-    #     filename="full_sft_distill_786.pth",
-    #     cache_dir="/tmp/huggingface_cache"
-    # )
-    # from model.model_minimind import MiniMindForCausalLM, MiniMindConfig
-    # config = MiniMindConfig()
-    # model = MiniMindForCausalLM(config)
-    # state_dict = torch.load(model_file, map_location='cpu')
-    # model.load_state_dict(state_dict)
-    # model.eval()
-    # model_ready = True
-    # st.success("✅ 模型加载成功！")
-    pass
-except Exception as e:
-    st.warning(f"⚠️ 模型加载失败，将使用占位回复。错误信息：{e}")
+# ---------- 显示标题 ----------
+st.markdown('<h1>🌻 MicroChat</h1>', unsafe_allow_html=True)
+st.markdown('<p class="subtitle">温暖 · 治愈 · 有记忆</p>', unsafe_allow_html=True)
 
-# ---------- 占位回复 ----------
+# ---------- 模型加载（暂时占位） ----------
+model_ready = False
 def generate_response(prompt):
-    return f"🌻 你说了：{prompt}\n\n（MicroChat 1.2 已上线，模型正在接入中，请耐心等待）"
+    return f"🌻 你说了：{prompt}\n\n（MicroChat 1.2 已上线，模型正在接入中）"
 
 # ---------- 会话管理 ----------
 def init_session_state(username):
@@ -120,7 +131,7 @@ def switch_chat(username, session_id):
 # ---------- 侧边栏 ----------
 def show_sidebar(username):
     with st.sidebar:
-        st.title("🧠 MicroChat")
+        st.markdown("## MicroChat")
         st.caption(f"用户：{username}")
         st.divider()
         if st.button("➕ 新对话", use_container_width=True):
@@ -144,6 +155,8 @@ def show_sidebar(username):
                         if st.session_state.current_session == sid:
                             st.session_state.current_session = None
                         st.rerun()
+        st.divider()
+        st.caption("v1.2 · 2026.07.19")
 
 # ---------- 聊天界面 ----------
 def show_chat_interface(username):
@@ -175,11 +188,7 @@ def main():
     init_db()
     authenticator = init_auth()
     
-    # 修正 login 调用：location 参数必须为 'main' 或 'sidebar'
-    name, authentication_status, username = authenticator.login(
-        location='main',
-        fields={'Form name':'登录', 'Username':'用户名', 'Password':'密码', 'Login':'登录'}
-    )
+    name, authentication_status, username = authenticator.login('main')
     
     if authentication_status:
         st.success(f"☀️ 欢迎回来，{name}！")
@@ -190,12 +199,8 @@ def main():
     else:
         st.info('请登录或注册')
     
-    # 修正 register_user 调用
     try:
-        if authenticator.register_user(
-            preauthorization=False,
-            fields={'Form name':'注册', 'Username':'用户名', 'Password':'密码', 'Repeat password':'确认密码', 'Register':'注册'}
-        ):
+        if authenticator.register_user(preauthorization=False):
             st.success('✅ 注册成功！请登录')
     except Exception as e:
         st.error(str(e))
