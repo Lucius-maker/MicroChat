@@ -5,12 +5,11 @@ import os
 from huggingface_hub import hf_hub_download
 from auth import init_auth, get_user
 from database import init_db, save_message, load_history, get_sessions, delete_session
-from model.model_minimind import MiniMindForCausalLM, MiniMindConfig
 
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="MicroChat", page_icon="🧠", layout="wide")
 
-# ---------- 黄色治愈主题 CSS（省略，与之前相同） ----------
+# ---------- 黄色治愈主题 CSS ----------
 st.markdown("""
 <style>
 .stApp {
@@ -67,32 +66,33 @@ div[data-testid="stChatMessage"]:nth-child(even) {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- 模型加载（从 Hugging Face 下载权重） ----------
-@st.cache_resource
-def load_model():
-    # 1. 下载权重文件到临时目录
-    model_file = hf_hub_download(
-        repo_id="Lucius-maker/MicroChat-Distill",
-        filename="full_sft_distill_786.pth",
-        cache_dir="/tmp/huggingface_cache"
-    )
-    # 2. 实例化模型
-    model = MiniMindForCausalLM(MiniMindConfig())
-    # 3. 加载权重
-    state_dict = torch.load(model_file, map_location='cpu')
-    model.load_state_dict(state_dict)
-    model.eval()
-    return model
-
-# 加载模型（首次访问时会下载，约 132MB）
+# ---------- 模型加载（带异常处理） ----------
+model_ready = False
 try:
-    model = load_model()
-    model_ready = True
+    # 尝试从 Hugging Face 下载权重（如果仓库不存在，会抛出异常）
+    # 这里先注释掉，让网站无模型也能运行
+    # model_file = hf_hub_download(
+    #     repo_id="Lucius-maker/MicroChat-Distill",
+    #     filename="full_sft_distill_786.pth",
+    #     cache_dir="/tmp/huggingface_cache"
+    # )
+    # from model.model_minimind import MiniMindForCausalLM, MiniMindConfig
+    # config = MiniMindConfig()
+    # model = MiniMindForCausalLM(config)
+    # state_dict = torch.load(model_file, map_location='cpu')
+    # model.load_state_dict(state_dict)
+    # model.eval()
+    # model_ready = True
+    # st.success("✅ 模型加载成功！")
+    pass
 except Exception as e:
-    model_ready = False
-    st.error(f"模型加载失败：{e}")
+    st.warning(f"⚠️ 模型加载失败，将使用占位回复。错误信息：{e}")
 
-# ---------- 会话管理（同前） ----------
+# ---------- 占位回复 ----------
+def generate_response(prompt):
+    return f"🌻 你说了：{prompt}\n\n（MicroChat 1.2 已上线，模型正在接入中，请耐心等待）"
+
+# ---------- 会话管理 ----------
 def init_session_state(username):
     if "sessions" not in st.session_state:
         st.session_state.sessions = {}
@@ -145,13 +145,6 @@ def show_sidebar(username):
                             st.session_state.current_session = None
                         st.rerun()
 
-# ---------- 生成回复 ----------
-def generate_response(prompt, model):
-    # 这里调用模型生成回复（需要你根据 MiniMindLM 的接口实现）
-    # 示例：model.generate(prompt, max_length=256)
-    # 由于不知道具体 API，先返回占位
-    return f"🌻 你说了：{prompt}\n（模型已加载，回复功能开发中）"
-
 # ---------- 聊天界面 ----------
 def show_chat_interface(username):
     init_session_state(username)
@@ -170,10 +163,7 @@ def show_chat_interface(username):
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        if model_ready:
-            response = generate_response(prompt, model)
-        else:
-            response = "⚠️ 模型未加载，请稍后再试"
+        response = generate_response(prompt)
         
         messages.append({"role": "assistant", "content": response})
         save_message(username, current, "assistant", response)
@@ -185,8 +175,9 @@ def main():
     init_db()
     authenticator = init_auth()
     
+    # 修正 login 调用：location 参数必须为 'main' 或 'sidebar'
     name, authentication_status, username = authenticator.login(
-        'Login', 'main',
+        location='main',
         fields={'Form name':'登录', 'Username':'用户名', 'Password':'密码', 'Login':'登录'}
     )
     
@@ -199,8 +190,12 @@ def main():
     else:
         st.info('请登录或注册')
     
+    # 修正 register_user 调用
     try:
-        if authenticator.register_user('注册新用户', preauthorization=False):
+        if authenticator.register_user(
+            preauthorization=False,
+            fields={'Form name':'注册', 'Username':'用户名', 'Password':'密码', 'Repeat password':'确认密码', 'Register':'注册'}
+        ):
             st.success('✅ 注册成功！请登录')
     except Exception as e:
         st.error(str(e))
