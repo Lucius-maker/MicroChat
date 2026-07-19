@@ -1,6 +1,5 @@
 import streamlit as st
 import uuid
-import torch
 from auth import init_auth
 from database import init_db, save_message, load_history, get_sessions, delete_session
 
@@ -29,35 +28,9 @@ div[data-testid="stChatMessage"]:nth-child(even) .stMarkdown { color: #5d4037; }
 st.markdown('<h1>Micro<span>Chat</span></h1>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">温暖 · 有记忆 · 懂推理</p>', unsafe_allow_html=True)
 
-# ---------- 加载本地模型 ----------
-@st.cache_resource
-def load_model():
-    from model.model_minimind import MiniMindForCausalLM, MiniMindConfig
-    import os
-    model_path = os.path.join(os.path.dirname(__file__), "out", "full_sft_distill_786.pth")
-    if not os.path.exists(model_path):
-        st.error(f"模型文件不存在：{model_path}")
-        return None
-    
-    config = MiniMindConfig()
-    model = MiniMindForCausalLM(config)
-    state_dict = torch.load(model_path, map_location='cpu')
-    model.load_state_dict(state_dict)
-    model.eval()
-    return model
-
-model = load_model()
-
-# ---------- 生成回复 ----------
-def generate_response(prompt, history):
-    if model is None:
-        return "⚠️ 模型未加载，请检查模型文件是否存在。"
-    
-    # 构造输入（需要根据你的模型tokenizer）
-    # 这里假设你有对应的tokenizer，如果项目中没有，需要补充
-    # 简单起见，我们先用占位，但实际需要调用model.generate
-    # 由于我们没有tokenizer，暂时返回占位，但你可以参考eval_llm.py中的实现
-    return f"💛 收到：{prompt}\n（模型已加载，但需要配置tokenizer和生成逻辑）"
+# ---------- 占位回复（无模型） ----------
+def generate_response(prompt, messages):
+    return f"💛 收到：{prompt}\n\n（MicroChat 当前处于无模型模式，仅用于展示界面和功能。模型将在后续版本中接入。）"
 
 # ---------- 会话管理 ----------
 def init_session_state(username):
