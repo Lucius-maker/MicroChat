@@ -9,20 +9,17 @@ from database import init_db, save_message, load_history, get_sessions, delete_s
 # ---------- 页面配置 ----------
 st.set_page_config(
     page_title="MicroChat", 
-    page_icon="🌻",          # 换上向日葵图标
+    page_icon="logo.png",
     layout="wide"
 )
 
-# ---------- 黄色治愈主题 CSS（优化后） ----------
+# ---------- 黄色治愈主题 CSS ----------
 st.markdown("""
 <style>
-/* 全局背景 - 治愈暖黄 */
 .stApp {
     background: linear-gradient(145deg, #fdf6e3 0%, #fef9e7 50%, #fff8e1 100%);
     font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
 }
-
-/* 主标题 - 居中，简洁 */
 h1 {
     text-align: center;
     font-size: 2.6rem;
@@ -39,8 +36,6 @@ h1 {
     margin-top: -0.5rem;
     margin-bottom: 1.5rem;
 }
-
-/* 按钮 - 暖黄渐变 */
 .stButton > button {
     background: linear-gradient(145deg, #f9e79f, #f7dc6f);
     color: #7d6608;
@@ -56,8 +51,6 @@ h1 {
     box-shadow: 0 8px 24px rgba(184, 134, 11, 0.25);
     color: #4d3800;
 }
-
-/* 输入框 - 圆润 */
 .stTextInput > div > div > input {
     background: #fffdf5;
     border: 2px solid #f7dc6f;
@@ -72,8 +65,6 @@ h1 {
     box-shadow: 0 4px 16px rgba(184, 134, 11, 0.15);
     outline: none;
 }
-
-/* 聊天气泡 - 治愈风 */
 div[data-testid="stChatMessage"]:nth-child(odd) {
     background: #fdebd0;
     border-left: 4px solid #f5b041;
@@ -84,8 +75,6 @@ div[data-testid="stChatMessage"]:nth-child(even) {
     border-left: 4px solid #f7dc6f;
     border-radius: 18px 18px 18px 4px;
 }
-
-/* 侧边栏 - 透明暖色 */
 .css-1d391kg {
     background: rgba(254, 249, 231, 0.7);
     backdrop-filter: blur(4px);
@@ -94,12 +83,11 @@ div[data-testid="stChatMessage"]:nth-child(even) {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- 显示标题 ----------
+# ---------- 标题 ----------
 st.markdown('<h1>🌻 MicroChat</h1>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">温暖 · 治愈 · 有记忆</p>', unsafe_allow_html=True)
 
-# ---------- 模型加载（暂时占位） ----------
-model_ready = False
+# ---------- 占位回复 ----------
 def generate_response(prompt):
     return f"🌻 你说了：{prompt}\n\n（MicroChat 1.2 已上线，模型正在接入中）"
 
@@ -188,19 +176,24 @@ def main():
     init_db()
     authenticator = init_auth()
     
-    name, authentication_status, username = authenticator.login('main')
+    # 无参登录
+    authenticator.login()
     
-    if authentication_status:
+    # 检查登录状态（从 session_state 读取）
+    if st.session_state.get("authentication_status"):
+        name = st.session_state.get("name", "用户")
         st.success(f"☀️ 欢迎回来，{name}！")
         authenticator.logout('登出', 'main')
-        show_chat_interface(username)
-    elif authentication_status is False:
+        show_chat_interface(st.session_state.get("username"))
+    elif st.session_state.get("authentication_status") is False:
         st.error('用户名或密码错误')
     else:
         st.info('请登录或注册')
     
+    # 注册
     try:
-        if authenticator.register_user(preauthorization=False):
+        authenticator.register_user(preauthorization=False)
+        if st.session_state.get("registration_status"):
             st.success('✅ 注册成功！请登录')
     except Exception as e:
         st.error(str(e))
