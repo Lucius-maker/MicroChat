@@ -12,8 +12,11 @@ import numpy as np
 import streamlit as st
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 
-# ---------- 全局并发锁，防止多用户同时生成导致崩溃 ----------
+# ---------- 全局并发锁 ----------
 model_lock = threading.Lock()
+
+# ---------- 配置 ----------
+MAX_DISPLAY_MESSAGES = 40   # 界面最多显示的消息条数，防止内存爆炸
 
 # ---------- 用户管理 ----------
 USER_DB = "users.json"
@@ -58,25 +61,28 @@ def save_user_chats(username, chats):
     with open(get_chats_file(username), "w", encoding="utf-8") as f:
         json.dump(chats, f, ensure_ascii=False, indent=2)
 
-# ---------- 保存当前对话 ----------
 def save_current_chat(username):
     if 'messages' in st.session_state and st.session_state.messages:
         chats = load_user_chats(username)
         current_id = st.session_state.get('current_chat_id')
+        # 获取完整消息（从chat_messages中恢复完整历史）
+        full_messages = st.session_state.get('chat_messages', st.session_state.messages)
         if current_id is not None:
             for chat in chats:
                 if chat['id'] == current_id:
-                    chat['messages'] = st.session_state.messages.copy()
-                    if st.session_state.messages:
-                        chat['title'] = st.session_state.messages[0]['content'][:30]
+                    chat['messages'] = full_messages.copy()
+                    if full_messages:
+                        first_user = next((m for m in full_messages if m['role'] == 'user'), None)
+                        chat['title'] = first_user['content'][:30] if first_user else "New Chat"
                     break
         else:
             new_id = max([c['id'] for c in chats], default=-1) + 1
-            title = st.session_state.messages[0]['content'][:30] if st.session_state.messages else "New Chat"
+            first_user = next((m for m in full_messages if m['role'] == 'user'), None)
+            title = first_user['content'][:30] if first_user else "New Chat"
             chats.append({
                 "id": new_id,
                 "title": title,
-                "messages": st.session_state.messages.copy()
+                "messages": full_messages.copy()
             })
             st.session_state['current_chat_id'] = new_id
         save_user_chats(username, chats)
@@ -84,128 +90,111 @@ def save_current_chat(username):
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="MicroChat version1.2", initial_sidebar_state="expanded")
 
-# ---------- 样式（深色 DeepSeek 风格） ----------
+# ---------- 样式：浅色 DeepSeek 风格（白色背景 + 黄色强调） ----------
 st.markdown("""
 <style>
     .stApp {
-        background: #121212;
+        background: #ffffff;
         font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
-        color: #e0e0e0;
+        color: #333333;
     }
     h1 {
         text-align: center;
-        font-size: 2.8rem;
+        font-size: 2.4rem;
         font-weight: 600;
-        color: #fdd835;
-        text-shadow: 2px 2px 12px rgba(253, 216, 53, 0.3);
-        margin-bottom: 0.5rem;
+        color: #f5b800;
+        margin-bottom: 0.3rem;
     }
     .subtitle {
         text-align: center;
-        color: #b0a070;
-        font-size: 1.1rem;
+        color: #7a7a7a;
+        font-size: 1rem;
         margin-bottom: 2rem;
-        font-weight: 300;
     }
     /* 聊天气泡 */
     .stChatMessage {
-        background: rgba(30, 30, 45, 0.8);
-        backdrop-filter: blur(4px);
-        border-radius: 20px;
+        background: #f7f7f7;
+        border-radius: 16px;
         padding: 12px 18px;
-        margin: 8px 0;
-        border: 1px solid rgba(253, 216, 53, 0.15);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        margin: 6px 0;
+        border: 1px solid #eaeaea;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.03);
     }
-    /* 用户消息（右侧） */
+    /* 用户消息 */
     div[data-testid="stChatMessage"]:nth-child(odd) {
-        background: #2a2a3c;
-        border-left: 4px solid #fdd835;
-        border-radius: 18px 18px 4px 18px;
-        color: #f0f0f0;
+        background: #fef5d4;
+        border-left: 3px solid #fcd535;
+        border-radius: 16px 16px 4px 16px;
+        color: #4a4a4a;
     }
-    /* 助手消息（左侧） */
+    /* 助手消息 */
     div[data-testid="stChatMessage"]:nth-child(even) {
-        background: #1e1e2a;
-        border-left: 4px solid #ffe082;
-        border-radius: 18px 18px 18px 4px;
-        color: #e0e0e0;
+        background: #f9f9f9;
+        border-left: 3px solid #e0c050;
+        border-radius: 16px 16px 16px 4px;
+        color: #333333;
     }
     /* 输入框 */
     .stTextInput > div > div > input {
-        background: #1e1e2e;
-        border: 2px solid #fdd835;
+        background: #ffffff;
+        border: 2px solid #fcd535;
         border-radius: 30px;
         padding: 12px 20px;
         font-size: 1rem;
-        color: #f0f0f0;
-        box-shadow: 0 2px 8px rgba(253, 216, 53, 0.1);
-        transition: all 0.3s ease;
+        color: #333;
+        box-shadow: 0 1px 4px rgba(252, 213, 53, 0.2);
     }
     .stTextInput > div > div > input:focus {
-        border-color: #ffd600;
-        box-shadow: 0 4px 16px rgba(253, 216, 53, 0.3);
+        border-color: #f5b800;
+        box-shadow: 0 4px 12px rgba(245, 184, 0, 0.25);
         outline: none;
     }
     /* 按钮 */
     .stButton > button {
-        background: #fdd835;
-        color: #121212;
+        background: #fcd535;
+        color: #222;
         border: none;
         border-radius: 30px;
-        padding: 10px 28px;
+        padding: 8px 22px;
         font-weight: 600;
-        font-size: 1rem;
-        box-shadow: 0 4px 12px rgba(253, 216, 53, 0.3);
-        transition: all 0.25s ease;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 6px rgba(252, 213, 53, 0.3);
+        transition: all 0.2s ease;
     }
     .stButton > button:hover {
-        transform: translateY(-2px);
-        background: #ffd600;
-        box-shadow: 0 8px 24px rgba(253, 216, 53, 0.5);
-        color: #000;
-    }
-    .stButton > button:active {
-        transform: translateY(0px);
-        box-shadow: 0 2px 8px rgba(253, 216, 53, 0.2);
+        background: #f5b800;
+        box-shadow: 0 4px 12px rgba(245, 184, 0, 0.4);
+        transform: translateY(-1px);
     }
     /* 侧边栏 */
     .css-1d391kg {
-        background: #1a1a2e;
-        border-right: 1px solid #fdd835;
+        background: #fafafa;
+        border-right: 1px solid #f0e2a0;
+    }
+    /* 历史对话按钮样式 */
+    .stButton button[kind="secondary"] {
+        background: #f5f5f5;
+        border: 1px solid #e0e0e0;
+        color: #444;
+        border-radius: 20px;
     }
     /* 滚动条 */
-    ::-webkit-scrollbar {
-        width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        background: #1e1e2e;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #fdd835;
-        border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #ffd600;
-    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f5f5f5; }
+    ::-webkit-scrollbar-thumb { background: #fcd535; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #e5b800; }
     .footer {
         text-align: center;
-        color: #b0a070;
-        font-size: 0.8rem;
+        color: #aaaaaa;
+        font-size: 0.75rem;
         margin-top: 2rem;
-        opacity: 0.7;
-        border-top: 1px solid #fdd835;
         padding-top: 1rem;
-    }
-    .new-chat-top {
-        display: flex;
-        justify-content: flex-end;
-        margin-bottom: 10px;
+        border-top: 1px solid #f0e2a0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- 工具函数和全局变量 ----------
+# ---------- 工具函数 ----------
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 LANG_TEXTS = {
@@ -242,7 +231,7 @@ def get_text(key):
     return LANG_TEXTS.get(lang, {}).get(key, LANG_TEXTS['zh'].get(key, key))
 
 TOOLS = [
-    {"type": "function", "function": {"name": "calculate_math", "description": "Calculate a math expression", "parameters": {"type": "object", "properties": {"expression": {"type": "string", "description": "Math expression"}}, "required": ["expression"]}}},
+    {"type": "function", "function": {"name": "calculate_math", "description": "Calculate a math expression", "parameters": {"type": "object", "properties": {"expression": {"type": "string"}}, "required": ["expression"]}}},
     {"type": "function", "function": {"name": "get_current_time", "description": "Get current time", "parameters": {"type": "object", "properties": {"timezone": {"type": "string", "default": "Asia/Shanghai"}}, "required": []}}},
     {"type": "function", "function": {"name": "random_number", "description": "Generate a random number", "parameters": {"type": "object", "properties": {"min": {"type": "integer"}, "max": {"type": "integer"}}, "required": ["min", "max"]}}},
     {"type": "function", "function": {"name": "text_length", "description": "Count text length", "parameters": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}}},
@@ -289,40 +278,37 @@ def process_assistant_content(content, is_streaming=False):
                 tc = json.loads(match.group(1))
                 name = tc.get('name', 'unknown')
                 args = tc.get('arguments', {})
-                return f'<div style="background: rgba(80, 110, 150, 0.20); border: 1px solid rgba(140, 170, 210, 0.30); padding: 10px 12px; border-radius: 12px; margin: 6px 0;"><div style="font-size:12px;opacity:.75;display:block;margin:0 0 6px 0;line-height:1;">ToolCalling</div><div><b>{name}</b>: {json.dumps(args, ensure_ascii=False)}</div></div>'
+                return f'<div style="background: rgba(252, 213, 53, 0.1); border: 1px solid #fcd535; padding: 8px 12px; border-radius: 10px; margin: 4px 0; font-size:0.9em;"><b>ToolCalling</b><br>{name}: {json.dumps(args, ensure_ascii=False)}</div>'
             except:
                 return match.group(0)
         content = re.sub(r'<tool_call>(.*?)</tool_call>', format_tool_call, content, flags=re.DOTALL)
-    
+    # 思考过程渲染（略，保持不变）
     if is_streaming and st.session_state.get('enable_thinking', False) and '</think>' not in content and '<think>' not in content:
         m = re.search(r'(\n\n(?:I am|Hi|Hello)[^\n]*)', content)
         if m and m.start(1) > 5:
             i = m.start(1)
             think_part = content[:i]
             answer_part = content[i:]
-            return f'<details open style="border-left: 2px solid #666; padding-left: 12px; margin: 8px 0;"><summary style="cursor: pointer; color: #888;">Thought</summary><div style="color: #aaa; font-size: 0.95em; margin-top: 8px; max-height: 100px; overflow-y: auto;">{think_part.strip()}</div></details>{answer_part}'
+            return f'<details open style="border-left: 2px solid #fcd535; padding-left: 12px; margin: 8px 0;"><summary style="color: #b5a050; cursor:pointer;">Thought</summary><div style="color: #999; font-size:0.95em; max-height:100px; overflow-y:auto;">{think_part.strip()}</div></details>{answer_part}'
         elif len(content) > 5:
-            return f'<details open style="border-left: 2px solid #666; padding-left: 12px; margin: 8px 0;"><summary style="cursor: pointer; color: #888;">Thinking...</summary><div style="color: #aaa; font-size: 0.95em; margin-top: 8px; max-height: 100px; overflow-y: auto; display: flex; flex-direction: column-reverse;"><div style="margin-bottom: auto;">{content.strip().replace(chr(10), "<br>")}</div></div></details>'
-
+            return f'<details open style="border-left: 2px solid #fcd535; padding-left: 12px; margin: 8px 0;"><summary style="color: #b5a050; cursor:pointer;">Thinking...</summary><div style="color: #999; font-size:0.95em; max-height:100px; overflow-y:auto;">{content.strip().replace(chr(10), "<br>")}</div></details>'
     if '<think>' in content and '</think>' in content:
         def format_think(match):
             think_content = match.group(2)
             if think_content.replace('\n', '').strip():
-                return f'<details open style="border-left: 2px solid #666; padding-left: 12px; margin: 8px 0;"><summary style="cursor: pointer; color: #888;">Thought</summary><div style="color: #aaa; font-size: 0.95em; margin-top: 8px; max-height: 100px; overflow-y: auto;">{think_content.strip()}</div></details>'
+                return f'<details open style="border-left:2px solid #fcd535; padding-left:12px; margin:8px 0;"><summary style="color:#b5a050; cursor:pointer;">Thought</summary><div style="color:#999; font-size:0.95em; max-height:100px; overflow-y:auto;">{think_content.strip()}</div></details>'
             return ''
         content = re.sub(r'(<think>)(.*?)(</think>)', format_think, content, flags=re.DOTALL)
-
     if '<think>' in content and '</think>' not in content:
         def format_think_in_progress(match):
             tc = match.group(1)
-            return f'<details open style="border-left: 2px solid #666; padding-left: 12px; margin: 8px 0;"><summary style="cursor: pointer; color: #888;">Thinking...</summary><div style="color: #aaa; font-size: 0.95em; margin-top: 8px; max-height: 100px; overflow-y: auto; display: flex; flex-direction: column-reverse;"><div style="margin-bottom: auto;">{tc.strip().replace(chr(10), "<br>")}</div></div></details>'
+            return f'<details open style="border-left:2px solid #fcd535; padding-left:12px; margin:8px 0;"><summary style="color:#b5a050; cursor:pointer;">Thinking...</summary><div style="color:#999; font-size:0.95em; max-height:100px; overflow-y:auto;">{tc.strip().replace(chr(10), "<br>")}</div></details>'
         content = re.sub(r'<think>(.*?)$', format_think_in_progress, content, flags=re.DOTALL)
-
     if '<think>' not in content and '</think>' in content:
         def format_think_no_start(match):
             think_content = match.group(1)
             if think_content.replace('\n', '').strip():
-                return f'<details open style="border-left: 2px solid #666; padding-left: 12px; margin: 8px 0;"><summary style="cursor: pointer; color: #888;">Thought</summary><div style="color: #aaa; font-size: 0.95em; margin-top: 8px; max-height: 100px; overflow-y: auto;">{think_content.strip()}</div></details>'
+                return f'<details open style="border-left:2px solid #fcd535; padding-left:12px; margin:8px 0;"><summary style="color:#b5a050; cursor:pointer;">Thought</summary><div style="color:#999; font-size:0.95em; max-height:100px; overflow-y:auto;">{think_content.strip()}</div></details>'
             return ''
         content = re.sub(r'(.*?)</think>', format_think_no_start, content, flags=re.DOTALL)
     return content
@@ -423,8 +409,9 @@ def main():
             with cols[0]:
                 if st.button(chat['title'], key=f"load_{chat['id']}"):
                     save_current_chat(username)
-                    st.session_state.messages = chat['messages'].copy()
-                    st.session_state.chat_messages = chat['messages'].copy()
+                    full_msgs = chat['messages']
+                    st.session_state.messages = full_msgs[-MAX_DISPLAY_MESSAGES:]   # 只加载最近若干条
+                    st.session_state.chat_messages = full_msgs
                     st.session_state['current_chat_id'] = chat['id']
                     st.rerun()
             with cols[1]:
@@ -458,7 +445,11 @@ def main():
     # ---------- 主聊天界面 ----------
     col1, col2 = st.columns([4, 1])
     with col1:
-        chat_title = "New Chat" if not st.session_state.messages else st.session_state.messages[0]['content'][:30]
+        chat_title = "New Chat"
+        if st.session_state.messages:
+            first_user = next((m for m in st.session_state.messages if m['role'] == 'user'), None)
+            if first_user:
+                chat_title = first_user['content'][:30]
         st.markdown(f"### {chat_title}")
     with col2:
         if st.button("New Chat", key="new_chat_top"):
@@ -476,22 +467,28 @@ def main():
         st.session_state.messages = []
         st.session_state.chat_messages = []
 
+    # 渲染当前显示的消息（已限制条数）
     for message in st.session_state.messages:
         if message["role"] == "assistant":
             st.markdown(process_assistant_content(message["content"]), unsafe_allow_html=True)
         else:
             st.markdown(
-                f'<div style="display: flex; justify-content: flex-end;"><div style="display: inline-block; margin: 10px 0; padding: 8px 12px; background-color: #3d4450; border-radius: 22px; color: white;">{message["content"]}</div></div>',
+                f'<div style="display:flex; justify-content:flex-end;"><div style="display:inline-block; margin:8px 0; padding:8px 14px; background:#fef5d4; border-radius:22px; color:#333; border:1px solid #fcd535;">{message["content"]}</div></div>',
                 unsafe_allow_html=True)
 
     prompt = st.chat_input(key="input", placeholder=get_text('send'))
 
     if prompt:
+        # 显示用户消息
         st.markdown(
-            f'<div style="display: flex; justify-content: flex-end;"><div style="display: inline-block; margin: 10px 0; padding: 8px 12px; background-color: #3d4450; border-radius: 22px; color: white;">{prompt}</div></div>',
+            f'<div style="display:flex; justify-content:flex-end;"><div style="display:inline-block; margin:8px 0; padding:8px 14px; background:#fef5d4; border-radius:22px; color:#333; border:1px solid #fcd535;">{prompt}</div></div>',
             unsafe_allow_html=True)
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.session_state.chat_messages.append({"role": "user", "content": prompt})
+
+        # 内存控制：保持显示消息不超过 MAX_DISPLAY_MESSAGES 条
+        if len(st.session_state.messages) > MAX_DISPLAY_MESSAGES:
+            st.session_state.messages = st.session_state.messages[-MAX_DISPLAY_MESSAGES:]
 
         placeholder = st.empty()
 
@@ -499,7 +496,8 @@ def main():
         setup_seed(random_seed)
 
         tools = [t for t in TOOLS if t['function']['name'] in st.session_state.get('selected_tools', [])] or None
-        sys_prompt = [] if tools else [{"role": "system", "content": "You are MicroChat version1.2, a helpful AI assistant. Answer in a complete and friendly manner."}]
+        sys_prompt = [] if tools else [{"role": "system", "content": "You are MicroChat version1.2, a helpful AI assistant."}]
+        # chat_messages 用于生成，保持完整历史以便工具调用上下文
         st.session_state.chat_messages = sys_prompt + st.session_state.chat_messages[-(st.session_state.history_chat_num + 1):]
         template_kwargs = {"tokenize": False, "add_generation_prompt": True}
         if st.session_state.get('enable_thinking', False):
@@ -543,7 +541,7 @@ def main():
                     tc = json.loads(tc_str.strip())
                     result = execute_tool(tc.get('name', ''), tc.get('arguments', {}))
                     st.session_state.chat_messages.append({"role": "tool", "content": json.dumps(result, ensure_ascii=False)})
-                    tool_results.append(f'<div style="background: rgba(90, 130, 110, 0.20); border: 1px solid rgba(150, 200, 170, 0.30); padding: 10px 12px; border-radius: 12px; margin: 6px 0;"><div style="font-size:12px;opacity:.75;display:block;margin:0 0 6px 0;line-height:1;">ToolCalled</div><div><b>{tc.get("name", "")}</b>: {json.dumps(result, ensure_ascii=False)}</div></div>')
+                    tool_results.append(f'<div style="background: rgba(252,213,53,0.08); border:1px solid #fcd535; padding:8px 12px; border-radius:10px; margin:4px 0; font-size:0.9em;"><b>ToolCalled</b><br>{tc.get("name","")}: {json.dumps(result, ensure_ascii=False)}</div>')
                 except:
                     pass
             full_answer += "\n" + "\n".join(tool_results) + "\n"
@@ -566,6 +564,9 @@ def main():
 
         st.session_state.messages.append({"role": "assistant", "content": answer})
         st.session_state.chat_messages.append({"role": "assistant", "content": answer})
+        # 再次裁剪显示消息
+        if len(st.session_state.messages) > MAX_DISPLAY_MESSAGES:
+            st.session_state.messages = st.session_state.messages[-MAX_DISPLAY_MESSAGES:]
 
         save_current_chat(username)
 
