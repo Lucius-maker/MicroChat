@@ -3,8 +3,8 @@ import uuid
 import torch
 from auth import init_auth, get_user
 from database import init_db, save_message, load_history, get_sessions, delete_session
-from model.model import MiniMindLM
-from model.tokenizer import Tokenizer
+from model.model_minimind import MiniMindLM
+from transformers import AutoTokenizer
 
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="MicroChat", page_icon="🧠", layout="wide")
