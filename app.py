@@ -192,7 +192,7 @@ def main():
     
     # 注册
     try:
-        authenticator.register_user(preauthorization=False)
+        authenticator.register_user()
         if st.session_state.get("registration_status"):
             st.success('✅ 注册成功！请登录')
     except Exception as e:
