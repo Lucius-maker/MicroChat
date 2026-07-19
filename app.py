@@ -1,15 +1,16 @@
 import streamlit as st
 import uuid
 import torch
+import os
+from huggingface_hub import hf_hub_download
 from auth import init_auth, get_user
 from database import init_db, save_message, load_history, get_sessions, delete_session
 from model.model_minimind import MiniMindLM
-from transformers import AutoTokenizer
 
 # ---------- 页面配置 ----------
 st.set_page_config(page_title="MicroChat", page_icon="🧠", layout="wide")
 
-# ---------- 黄色治愈主题 CSS ----------
+# ---------- 黄色治愈主题 CSS（省略，与之前相同） ----------
 st.markdown("""
 <style>
 .stApp {
@@ -66,20 +67,32 @@ div[data-testid="stChatMessage"]:nth-child(even) {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- 模型加载 ----------
+# ---------- 模型加载（从 Hugging Face 下载权重） ----------
 @st.cache_resource
 def load_model():
-    model_path = "out/full_sft_distill_786.pth"
+    # 1. 下载权重文件到临时目录
+    model_file = hf_hub_download(
+        repo_id="Lucius-maker/MicroChat-Distill",
+        filename="full_sft_distill_786.pth",
+        cache_dir="/tmp/huggingface_cache"
+    )
+    # 2. 实例化模型
     model = MiniMindLM()
-    model.load_state_dict(torch.load(model_path, map_location='cpu'))
-    tokenizer = Tokenizer()
+    # 3. 加载权重
+    state_dict = torch.load(model_file, map_location='cpu')
+    model.load_state_dict(state_dict)
     model.eval()
-    return model, tokenizer
+    return model
 
-# 暂时注释掉模型加载，避免缺少依赖导致启动失败
-# model, tokenizer = load_model()
+# 加载模型（首次访问时会下载，约 132MB）
+try:
+    model = load_model()
+    model_ready = True
+except Exception as e:
+    model_ready = False
+    st.error(f"模型加载失败：{e}")
 
-# ---------- 会话管理 ----------
+# ---------- 会话管理（同前） ----------
 def init_session_state(username):
     if "sessions" not in st.session_state:
         st.session_state.sessions = {}
@@ -132,10 +145,12 @@ def show_sidebar(username):
                             st.session_state.current_session = None
                         st.rerun()
 
-# ---------- 生成回复（占位） ----------
-def generate_response(prompt):
-    # 这里暂时返回占位回复，后续接入真正的模型
-    return f"🌻 你好！你说了：{prompt}\n\n（MicroChat 1.2 正在开发中，完整模型响应即将上线）"
+# ---------- 生成回复 ----------
+def generate_response(prompt, model):
+    # 这里调用模型生成回复（需要你根据 MiniMindLM 的接口实现）
+    # 示例：model.generate(prompt, max_length=256)
+    # 由于不知道具体 API，先返回占位
+    return f"🌻 你说了：{prompt}\n（模型已加载，回复功能开发中）"
 
 # ---------- 聊天界面 ----------
 def show_chat_interface(username):
@@ -155,7 +170,10 @@ def show_chat_interface(username):
         with st.chat_message("user"):
             st.markdown(prompt)
         
-        response = generate_response(prompt)
+        if model_ready:
+            response = generate_response(prompt, model)
+        else:
+            response = "⚠️ 模型未加载，请稍后再试"
         
         messages.append({"role": "assistant", "content": response})
         save_message(username, current, "assistant", response)
