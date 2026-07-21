@@ -272,29 +272,18 @@ def process_assistant_content(content, is_streaming=False):
 # ==================== 模型加载（固定本地路径） ====================
 @st.cache_resource
 def load_model_tokenizer():
-    # 固定本地模型路径（如果不存在，则尝试从 Hugging Face 加载，但你已下载好）
-    local_model_path = "/root/autodl-tmp/Qwen2-7B-Instruct"
-    if not os.path.exists(local_model_path):
-        local_model_path = "Qwen/Qwen2-7B-Instruct"
-        print(f"⚠️ 本地路径不存在，尝试从 Hugging Face 加载: {local_model_path}")
-    print(f"📦 正在加载 MicroChat version2.0 模型（Qwen2-7B-Instruct），请耐心等待...")
-    
+    model_path = "./model"   # 本地路径
+    print(f"📦 加载本地模型: {model_path}")
     model = AutoModelForCausalLM.from_pretrained(
-        local_model_path,
+        model_path,
         trust_remote_code=True,
         torch_dtype=torch.bfloat16,
         device_map="auto",
-        low_cpu_mem_usage=True,
     )
-    tokenizer = AutoTokenizer.from_pretrained(
-        local_model_path,
-        trust_remote_code=True
-    )
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    
-    model = model.eval()
-    print(f"✅ 模型加载完成！设备: {model.device}")
+    model.eval()
     return model, tokenizer
 
 
