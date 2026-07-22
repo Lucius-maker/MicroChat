@@ -273,21 +273,18 @@ def process_assistant_content(content, is_streaming=False):
 @st.cache_resource
 def load_model_tokenizer():
     model_id = "Qwen/Qwen2-1.5B-Instruct"
-    model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True, torch_dtype=torch.bfloat16, device_map="auto")
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    print(f"📦 加载本地模型: {model_path}")
+    print(f"📦 加载模型: {model_id}")
     model = AutoModelForCausalLM.from_pretrained(
-        model_path,
+        model_id,
         trust_remote_code=True,
         torch_dtype=torch.bfloat16,
         device_map="auto",
     )
-    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     model.eval()
     return model, tokenizer
-
 
 def clear_chat_messages():
     del st.session_state.messages
